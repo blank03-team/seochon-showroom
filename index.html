@@ -174,7 +174,7 @@ a.link{color:var(--accent);font-weight:500}
         <button class="btn small" type="button" id="copyBtn">표 복사</button>
         <label class="row hint"><input type="checkbox" id="showDone" style="width:auto"> 등록 완료된 것도 보기</label>
       </div>
-      <p class="hint" style="margin:8px 0 0">2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
+      <p class="hint" style="margin:8px 0 0">2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDDSR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
       <div class="row" style="margin-top:8px">
         <label class="f" style="flex:1">날짜 <input id="seqDate" type="date"></label>
         <label class="f" style="flex:1">그 날 마지막으로 쓴 번호 <input id="seqLast" inputmode="numeric" placeholder="예: 5"></label>
@@ -456,7 +456,7 @@ function renderList() {
   if (!list.length) { box.innerHTML = '<div class="empty">아직 저장된 판매가 없습니다. 판매 입력 탭에서 손님과 상품을 넣고 저장하세요.</div>'; renderSeqInfo(); return; }
   let html = '', last = '';
   list.forEach((s) => {
-    if (s.saleDate !== last) { last = s.saleDate; const n = list.filter((x) => x.saleDate === s.saleDate).length; html += `<div class="datehd"><span>${s.saleDate}</span><span class="hint">${n}건 · 번호 ${ymd6(s.saleDate)}0SR…</span></div>`; }
+    if (s.saleDate !== last) { last = s.saleDate; const n = list.filter((x) => x.saleDate === s.saleDate).length; html += `<div class="datehd"><span>${s.saleDate}</span><span class="hint">${n}건 · 번호 ${ymd6(s.saleDate)}SR…</span></div>`; }
     const st = { open: '대기', exported: '엑셀 받음', queued: '올리는 중', registered: '등록 완료', failed: '실패' }[s.status] || s.status;
     const ph = String(s.customer.phone || '').replace(/^(\d{3})-?(\d{3,4})-?(\d{4})$/, '$1-****-$3');
     html += `<div class="sale" data-id="${s.id}"><div class="hd"><div><b>${esc(s.customer.name)}</b> <span class="hint">${esc(ph)}</span> <span class="status ${s.status}">${st}</span></div><div class="money"><b>${won(s.lines.reduce((a, l) => a + l.amount, 0))}</b></div></div>
@@ -488,7 +488,7 @@ async function assignNumbers(targets) { // 번호 없는 줄에 날짜별로 이
   const next = nextSeqMap(store.sales);
   for (const s of targets) {
     let changed = false;
-    s.lines.forEach((l) => { if (!l.orderNo) { next[s.saleDate] = (next[s.saleDate] || 0) + 1; l.orderNo = `${ymd6(s.saleDate)}0SR${String(next[s.saleDate]).padStart(3, '0')}`; changed = true; } });
+    s.lines.forEach((l) => { if (!l.orderNo) { next[s.saleDate] = (next[s.saleDate] || 0) + 1; l.orderNo = `${ymd6(s.saleDate)}SR${String(next[s.saleDate]).padStart(3, '0')}`; changed = true; } });
     if (changed || s.status === 'open') { s.status = 'exported'; await persistSale(s); }
   }
 }
