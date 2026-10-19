@@ -75,6 +75,8 @@ a.link{color:var(--accent);font-weight:500}
 .status.open{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .status.exported{background:var(--soft);color:var(--accent);border-color:transparent}
 .status.registered{color:var(--ok)}
+.status.queued{background:var(--soft);color:var(--accent);border-color:transparent}
+.status.failed{background:var(--warn);color:#fff;border-color:transparent}
 .sale{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);margin-top:8px}
 .sale .hd{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
 .sale .hd b{font-size:15px}
@@ -112,12 +114,12 @@ a.link{color:var(--accent);font-weight:500}
     <section class="card">
       <h2>손님</h2>
       <div class="grid">
-        <label class="f">이름 <input id="cName" autocomplete="off" placeholder="정다이"></label>
+        <label class="f">이름 <input id="cName" autocomplete="off" placeholder="홍길동"></label>
         <label class="f">전화 <input id="cPhone" inputmode="tel" autocomplete="off" placeholder="010-0000-0000"></label>
-        <label class="f">우편번호 <input id="cZip" inputmode="numeric" maxlength="5" placeholder="53248"></label>
+        <label class="f">우편번호 <input id="cZip" inputmode="numeric" maxlength="5" placeholder="12345"></label>
         <label class="f">판매일 <input id="cDate" type="date"></label>
-        <label class="f full">주소 <input id="cAddr" autocomplete="off" placeholder="경남 거제시 중곡로2길 56"></label>
-        <label class="f full">상세주소 <input id="cAddr2" autocomplete="off" placeholder="대동피렌체 102동 1503호"></label>
+        <label class="f full">주소 <input id="cAddr" autocomplete="off" placeholder="서울시 종로구 필운대로2길 22"></label>
+        <label class="f full">상세주소 <input id="cAddr2" autocomplete="off" placeholder="2층 201호"></label>
         <div class="full row">
           <button class="btn" type="button" id="zipBtn">주소 검색 (우편번호)</button>
           <span class="hint">도로명·건물명·지번으로 찾으면 우편번호와 주소가 채워집니다. 상세주소만 적으세요.</span>
@@ -165,11 +167,12 @@ a.link{color:var(--accent);font-weight:500}
     <section class="card">
       <h2>이지어드민에 올릴 것</h2>
       <div class="row">
-        <button class="btn primary" type="button" id="exportBtn">엑셀 내려받기</button>
-        <button class="btn" type="button" id="copyBtn">표 복사 (엑셀에 붙여넣기)</button>
+        <button class="btn primary" type="button" id="uploadBtn">이지어드민에 올리기 (로봇)</button>
+        <button class="btn" type="button" id="exportBtn">엑셀 내려받기</button>
+        <button class="btn" type="button" id="copyBtn">표 복사</button>
         <label class="row hint"><input type="checkbox" id="showDone" style="width:auto"> 등록 완료된 것도 보기</label>
       </div>
-      <p class="hint" style="margin:8px 0 0">목록은 30초마다, 탭을 열 때마다 새로 받습니다. 파일은 이지어드민 발주(DC10) 화면에서 <b>블랭크03-서촌쇼룸수동 → 업로드</b>에 올립니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
+      <p class="hint" style="margin:8px 0 0"><b>올리기</b>를 누르면 대기 건이 "올리는 중"이 되고 2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
       <div class="row" style="margin-top:8px">
         <label class="f" style="flex:1">날짜 <input id="seqDate" type="date"></label>
         <label class="f" style="flex:1">그 날 마지막으로 쓴 번호 <input id="seqLast" inputmode="numeric" placeholder="예: 5"></label>
@@ -451,11 +454,11 @@ function renderList() {
   let html = '', last = '';
   list.forEach((s) => {
     if (s.saleDate !== last) { last = s.saleDate; const n = list.filter((x) => x.saleDate === s.saleDate).length; html += `<div class="datehd"><span>${s.saleDate}</span><span class="hint">${n}건 · 번호 ${ymd6(s.saleDate)}0SR…</span></div>`; }
-    const st = { open: '대기', exported: '엑셀 받음', registered: '등록 완료' }[s.status] || s.status;
+    const st = { open: '대기', exported: '엑셀 받음', queued: '올리는 중', registered: '등록 완료', failed: '실패' }[s.status] || s.status;
     html += `<div class="sale" data-id="${s.id}"><div class="hd"><div><b>${esc(s.customer.name)}</b> <span class="hint">${esc(s.customer.phone)}</span> <span class="status ${s.status}">${st}</span></div><div class="money"><b>${won(s.lines.reduce((a, l) => a + l.amount, 0))}</b></div></div>
-      <div class="addr">[${esc(s.customer.zip || '우편번호 없음')}] ${esc(s.customer.addr)} ${esc(s.customer.addr2)}${s.memo ? ' · ' + esc(s.memo) : ''}</div>
+      <div class="addr">[${esc(s.customer.zip || '우편번호 없음')}] ${esc(s.customer.addr)} ${esc(s.customer.addr2)}${s.memo ? ' · ' + esc(s.memo) : ''}</div>${s.result ? `<div class="addr" style="color:${s.status === 'failed' ? 'var(--warn)' : 'var(--ok)'}">${esc(s.result)}</div>` : ''}
       <ul>${s.lines.map((l) => `<li><span>${esc(l.name)} (${esc(l.color)}) ${esc(sizeLabel(l.size))} × ${l.qty}${l.orderNo ? `<code>${l.orderNo}</code>` : ''}</span><span class="money">${won(l.amount)}</span></li>`).join('')}</ul>
-      <div class="acts">${s.status !== 'registered' ? `<button class="btn small primary" data-act="done">이지어드민 등록 완료</button>` : `<button class="btn small" data-act="reopen">다시 대기로</button>`}<button class="btn small" data-act="del">삭제</button></div></div>`;
+      <div class="acts">${s.status === 'registered' ? `<button class="btn small" data-act="reopen">다시 대기로</button>` : s.status === 'queued' ? `<span class="hint">로봇이 올리는 중…</span>` : `<button class="btn small" data-act="done">손으로 올렸음 (등록 완료)</button>`}<button class="btn small" data-act="del">삭제</button></div></div>`;
   });
   box.innerHTML = html; renderSeqInfo();
 }
@@ -504,6 +507,18 @@ $('#exportBtn').onclick = async () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast(`${rows.length}줄 → ${name}`);
+};
+$('#uploadBtn').onclick = async () => {
+  if (store.mode !== 'api') { toast('서버에 연결돼 있어야 로봇을 부를 수 있습니다'); return; }
+  const targets = store.sales.filter((s) => ['open', 'exported', 'failed'].includes(s.status));
+  if (!targets.length) { toast('올릴 건이 없습니다'); return; }
+  $('#uploadBtn').disabled = true;
+  try {
+    const j = await api('upload', { ids: targets.map((s) => s.id) });
+    toast(j.dispatched ? `${j.queued}건을 로봇에게 넘겼습니다. 2~4분 뒤 목록이 바뀝니다.` : (j.message || '올릴 건이 없습니다'));
+    await refresh($('#showDone').checked);
+  } catch (e) { toast('올리기 실패: ' + e.message); }
+  $('#uploadBtn').disabled = false;
 };
 $('#copyBtn').onclick = async () => {
   const targets = exportTargets(); if (!targets.length) { toast('복사할 판매가 없습니다'); return; }
