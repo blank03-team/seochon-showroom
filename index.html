@@ -107,7 +107,7 @@ a.link{color:var(--accent);font-weight:500}
     </div>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-entry" aria-selected="true" aria-controls="panel-entry">판매 입력</button>
-      <button role="tab" id="tab-list" aria-selected="false" aria-controls="panel-list">목록 · 엑셀 <span id="openCount"></span></button>
+      <button role="tab" id="tab-list" aria-selected="false" aria-controls="panel-list">목록 <span id="openCount"></span></button>
     </div>
   </header>
 
@@ -166,14 +166,15 @@ a.link{color:var(--accent);font-weight:500}
 
   <div id="panel-list" role="tabpanel" hidden>
     <section class="card">
-      <h2>이지어드민에 올릴 것</h2>
+      <h2>등록 상태</h2>
+      <p class="hint" style="margin:0 0 8px">저장하면 로봇이 바로 이지어드민에 올립니다. 아래 버튼은 <b>실패했거나 대기로 남은 건</b>이 있을 때만 쓰는 예비입니다.</p>
       <div class="row">
-        <button class="btn primary" type="button" id="uploadBtn">이지어드민에 올리기 (로봇)</button>
-        <button class="btn" type="button" id="exportBtn">엑셀 내려받기</button>
-        <button class="btn" type="button" id="copyBtn">표 복사</button>
+        <button class="btn small" type="button" id="uploadBtn">남은 건 다시 올리기 (로봇)</button>
+        <button class="btn small" type="button" id="exportBtn">엑셀 내려받기 (손으로 올릴 때)</button>
+        <button class="btn small" type="button" id="copyBtn">표 복사</button>
         <label class="row hint"><input type="checkbox" id="showDone" style="width:auto"> 등록 완료된 것도 보기</label>
       </div>
-      <p class="hint" style="margin:8px 0 0">저장하면 바로 로봇에게 넘어갑니다. <b>올리기</b>는 실패했거나 대기로 남은 건을 다시 보낼 때 누릅니다. 2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
+      <p class="hint" style="margin:8px 0 0">2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
       <div class="row" style="margin-top:8px">
         <label class="f" style="flex:1">날짜 <input id="seqDate" type="date"></label>
         <label class="f" style="flex:1">그 날 마지막으로 쓴 번호 <input id="seqLast" inputmode="numeric" placeholder="예: 5"></label>

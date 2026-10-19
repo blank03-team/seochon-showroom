@@ -111,15 +111,17 @@ input.f{font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line
   </header>
 
   <div id="t-sum" class="tab">
-    <section class="card"><h2>기간 합계</h2><div class="tiles" id="tiles"></div></section>
-    <section class="card"><h2>일별 판매액</h2><div class="chart" id="chart"><div class="tip" id="tip"></div></div><p class="hint" id="chartHint"></p></section>
+    <section class="card"><h2>앱으로 입력한 판매</h2><div class="tiles" id="tiles"></div></section>
+    <section class="card"><h2>이지어드민 쇼룸 주문 (배송 기준 · 앱 이전 기록 포함)</h2><div class="tiles" id="ezTiles"></div><p class="hint">이지어드민 주문에는 금액이 없어 정가 합은 지금 자사몰 판매가로 계산한 값입니다. 앱으로 입력된 건과 주문번호가 같은 줄은 한 번만 셉니다.</p></section>
+    <section class="card"><h2>일별 판매액 (앱 입력)</h2><div class="chart" id="chart"><div class="tip" id="tip"></div></div><p class="hint" id="chartHint"></p></section>
+    <section class="card"><h2>일별 배송 장수 (이지어드민 쇼룸 주문)</h2><div class="chart" id="chart2"><div class="tip" id="tip2"></div></div><p class="hint" id="chartHint2"></p></section>
     <section class="card"><h2>등록 상태</h2><div class="tiles" id="statusTiles"></div></section>
   </div>
 
   <div id="t-lines" class="tab" hidden>
-    <section class="card"><h2>판매 내역 (한 상품 한 줄)</h2>
+    <section class="card"><h2>판매 내역 (한 상품 한 줄 · 앱 입력 + 이지어드민에만 있는 쇼룸 주문)</h2>
       <div class="row"><input class="f" id="q" placeholder="손님·상품·주문번호 검색" style="flex:1"><button class="btn small" id="csvLines">엑셀(CSV) 내려받기</button></div>
-      <div class="tbl"><table><thead><tr><th>판매일</th><th>손님</th><th>상품</th><th>컬러</th><th>사이즈</th><th class="num">수량</th><th class="num">정가</th><th>할인</th><th class="num">한 장</th><th class="num">판매가</th><th>주문번호</th><th>상태</th></tr></thead><tbody id="linesBody"></tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>판매일</th><th>손님</th><th>상품</th><th>컬러</th><th>사이즈</th><th class="num">수량</th><th class="num">정가</th><th>할인</th><th class="num">한 장</th><th class="num">판매가</th><th>주문번호</th><th>상태</th><th>출처</th></tr></thead><tbody id="linesBody"></tbody></table></div>
     </section>
   </div>
 
@@ -143,7 +145,7 @@ input.f{font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line
   <div id="t-prod" class="tab" hidden>
     <section class="card"><h2>상품별 성적 (쇼룸 vs 온라인 같은 기간)</h2>
       <p class="hint">온라인은 이지어드민 주문 중 쇼룸·도매(수동) 채널을 뺀 배송분. 구/신 코드는 이름·컬러로 합칩니다.</p>
-      <div class="tbl"><table><thead><tr><th>상품</th><th>컬러</th><th class="num">쇼룸 장수</th><th class="num">쇼룸 판매액</th><th class="num">평균 할인</th><th class="num">온라인 장수</th></tr></thead><tbody id="prodBody"></tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>상품</th><th>컬러</th><th class="num">쇼룸 장수</th><th class="num">쇼룸 판매액</th><th class="num">평균 할인</th><th class="num">이지어드민 장수(앱 외)</th><th class="num">온라인 장수</th></tr></thead><tbody id="prodBody"></tbody></table></div>
     </section>
   </div>
 
@@ -248,6 +250,15 @@ function flatLines() {
   D.sales.forEach((s) => s.lines.forEach((l, i) => out.push(Object.assign({ sale: s, idx: i }, l))));
   return out;
 }
+// 이지어드민에만 있는 쇼룸 주문 줄(앱 주문번호와 겹치지 않는 것) — 앱 이전 기록·손으로 올린 건
+function ezOnlyLines() {
+  const appNos = new Set(flatLines().map((l) => l.orderNo).filter(Boolean));
+  return (D.orders || []).filter((o) => o.판매처 === '블랭크03-서촌쇼룸수동' && !appNos.has(o.주문번호)).map((o) => {
+    const m = D.master[o.바코드] || {};
+    const price = m.n ? (PRICE[`${m.n}|${m.c}|${m.s}`] || 0) : 0;
+    return { ez: true, orderNo: o.주문번호, date: o.배송일 || '', name: m.n || o.바코드, color: m.c || '', size: m.s || '', qty: Number(o.상품수량) || 0, listPrice: price, status: o.상태 || '' };
+  }).sort((a, b) => (a.date + a.orderNo).localeCompare(b.date + b.orderNo));
+}
 function ratesOf(l) {
   if (Array.isArray(l.rates)) return l.rates.map(Number).filter((x) => x > 0);
   const m = String(l.discount || '').match(/\d+(\.\d+)?%/g);
@@ -317,8 +328,16 @@ function renderAll() {
   const st = {}; D.sales.forEach((s) => st[s.status] = (st[s.status] || 0) + 1);
   $('#statusTiles').innerHTML = Object.keys(STATUS).map((k) => `<div class="tile"><div class="k">${STATUS[k]}</div><div class="v">${num(st[k] || 0)}</div></div>`).join('');
   drawChart(lines);
+  const ez = ezOnlyLines();
+  const ezQty = ez.reduce((a, l) => a + l.qty, 0), ezList = ez.reduce((a, l) => a + l.listPrice * l.qty, 0), ezNoPrice = ez.filter((l) => !l.listPrice).length;
+  $('#ezTiles').innerHTML = [
+    ['주문 수', num(new Set(ez.map((l) => l.orderNo)).size) + '건', '주문번호 기준'], ['장수', num(ezQty) + '장', '배송된 것'],
+    ['정가 합 (현재가)', won(ezList), ezNoPrice ? `${ezNoPrice}줄은 현재 목록에 없어 제외` : '지금 자사몰 판매가 기준'],
+  ].map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  const byDay = {}; ez.forEach((l) => { if (l.date) byDay[l.date] = (byDay[l.date] || 0) + l.qty; });
+  drawBars('#chart2', '#tip2', '#chartHint2', byDay, (v) => num(v) + '장', '배송된 날');
   // 내역
-  $('#nLines').textContent = `(${lines.length})`;
+  $('#nLines').textContent = `(${lines.length + ez.length})`;
   renderLines(lines);
   // 점검
   const ck = checks(); $('#nCheck').textContent = ck.length ? `(${ck.length})` : '';
@@ -333,16 +352,21 @@ function renderAll() {
   // 상품별
   const agg = {};
   lines.forEach((l) => { const k = `${l.name}|${l.color}`; const a = agg[k] = agg[k] || { n: l.name, c: l.color, qty: 0, amt: 0, list: 0, on: 0 }; a.qty += l.qty; a.amt += l.amount; a.list += l.listPrice * l.qty; });
-  Object.entries(D.online || {}).forEach(([code, q]) => { const m = D.master[code]; if (!m) return; const k = `${m.n}|${m.c}`; const a = agg[k] = agg[k] || { n: m.n, c: m.c, qty: 0, amt: 0, list: 0, on: 0 }; a.on += q; });
-  const prods = Object.values(agg).filter((a) => a.qty > 0).sort((x, y) => y.qty - x.qty || y.amt - x.amt);
-  $('#prodBody').innerHTML = prods.length ? prods.map((a) => `<tr><td>${esc(a.n)}</td><td>${esc(a.c)}</td><td class="num">${a.qty}</td><td class="num">${won(a.amt)}</td><td class="num">${a.list ? ((1 - a.amt / a.list) * 100).toFixed(1) + '%' : '-'}</td><td class="num">${a.on}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">기간 안에 쇼룸 판매가 없습니다.</td></tr>';
+  ezOnlyLines().forEach((l) => { const k = `${l.name}|${l.color}`; const a = agg[k] = agg[k] || { n: l.name, c: l.color, qty: 0, amt: 0, list: 0, on: 0, ez: 0 }; a.ez = (a.ez || 0) + l.qty; });
+  Object.entries(D.online || {}).forEach(([code, q]) => { const m = D.master[code]; if (!m) return; const k = `${m.n}|${m.c}`; const a = agg[k] = agg[k] || { n: m.n, c: m.c, qty: 0, amt: 0, list: 0, on: 0, ez: 0 }; a.on += q; });
+  const prods = Object.values(agg).filter((a) => a.qty > 0 || (a.ez || 0) > 0).sort((x, y) => (y.qty + (y.ez || 0)) - (x.qty + (x.ez || 0)) || y.amt - x.amt);
+  $('#prodBody').innerHTML = prods.length ? prods.map((a) => `<tr><td>${esc(a.n)}</td><td>${esc(a.c)}</td><td class="num">${a.qty}</td><td class="num">${a.qty ? won(a.amt) : '-'}</td><td class="num">${a.list ? ((1 - a.amt / a.list) * 100).toFixed(1) + '%' : '-'}</td><td class="num">${a.ez || 0}</td><td class="num">${a.on}</td></tr>`).join('') : '<tr><td colspan="7" class="empty">기간 안에 쇼룸 판매가 없습니다.</td></tr>';
   // 설정
   renderSeq();
 }
 function renderLines(lines) {
   const q = ($('#q').value || '').toLowerCase().trim();
   const rows = lines.filter((l) => !q || [l.sale.customer.name, l.sale.customer.phone, l.name, l.color, l.orderNo].join(' ').toLowerCase().includes(q));
-  $('#linesBody').innerHTML = rows.length ? rows.map((l) => `<tr><td>${l.sale.saleDate}</td><td>${esc(l.sale.customer.name)}</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${won(l.listPrice)}</td><td>${esc(discLabel(l))}</td><td class="num">${won(l.unit)}</td><td class="num">${won(l.amount)}</td><td>${esc(l.orderNo || '')}</td><td><span class="status ${l.sale.status}">${STATUS[l.sale.status] || l.sale.status}</span></td></tr>`).join('') : '<tr><td colspan="12" class="empty">없음</td></tr>';
+  const ez = ezOnlyLines().filter((l) => !q || [l.name, l.color, l.orderNo].join(' ').toLowerCase().includes(q));
+  const all = rows.map((l) => ({ d: l.sale.saleDate, html: `<tr><td>${l.sale.saleDate}</td><td>${esc(l.sale.customer.name)}</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${won(l.listPrice)}</td><td>${esc(discLabel(l))}</td><td class="num">${won(l.unit)}</td><td class="num">${won(l.amount)}</td><td>${esc(l.orderNo || '')}</td><td><span class="status ${l.sale.status}">${STATUS[l.sale.status] || l.sale.status}</span></td><td><span class="flag ok">앱</span></td></tr>` }))
+    .concat(ez.map((l) => ({ d: l.date, html: `<tr><td>${esc(l.date)}</td><td class="hint">—</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${l.listPrice ? won(l.listPrice) : '-'}</td><td class="hint">—</td><td class="num hint">—</td><td class="num hint">—</td><td>${esc(l.orderNo)}</td><td><span class="status registered">${esc(l.status || '이지어드민')}</span></td><td><span class="flag mute">이지어드민</span></td></tr>` })))
+    .sort((a, b) => b.d.localeCompare(a.d));
+  $('#linesBody').innerHTML = all.length ? all.map((r) => r.html).join('') : '<tr><td colspan="13" class="empty">없음</td></tr>';
 }
 $('#q').addEventListener('input', () => D && renderLines(flatLines()));
 $('#csvLines').onclick = () => {
@@ -355,30 +379,33 @@ $('#csvLines').onclick = () => {
 
 function drawChart(lines) {
   const by = {}; lines.forEach((l) => by[l.sale.saleDate] = (by[l.sale.saleDate] || 0) + l.amount);
+  drawBars('#chart', '#tip', '#chartHint', by, won, '가장 많이 판 날');
+}
+function drawBars(boxSel, tipSel, hintSel, by, fmt, bestLabel) {
   const from = new Date($('#from').value), to = new Date($('#to').value);
   const days = []; for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) days.push(iso(d));
-  const box = $('#chart'); const old = box.querySelector('svg'); if (old) old.remove();
-  if (!days.length || days.length > 120) { $('#chartHint').textContent = days.length ? '기간이 120일을 넘어 일별 그림은 생략합니다.' : ''; return; }
+  const box = $(boxSel); const old = box.querySelector('svg'); if (old) old.remove();
+  if (!days.length || days.length > 120) { $(hintSel).textContent = days.length ? '기간이 120일을 넘어 일별 그림은 생략합니다.' : ''; return; }
   const W = 1000, H = 260, L = 56, R = 12, T = 12, B = 34;
   const max = Math.max(1, ...days.map((d) => by[d] || 0));
   const step = niceStep(max); const top = Math.ceil(max / step) * step;
   const x = (i) => L + (i + 0.5) * ((W - L - R) / days.length);
   const bw = Math.max(2, Math.min(28, ((W - L - R) / days.length) - 2));
   const y = (v) => T + (H - T - B) * (1 - v / top);
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 판매액">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 그림">`;
   for (let v = 0; v <= top; v += step) svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v >= 10000 ? (v / 10000) + '만' : v}</text>`;
   days.forEach((d, i) => { const v = by[d] || 0; const h = Math.max(0, y(0) - y(v)); svg += `<rect class="bar" data-d="${d}" data-v="${v}" x="${x(i) - bw / 2}" y="${y(v)}" width="${bw}" height="${h}" rx="${v ? 3 : 0}"/>`; });
   const every = Math.ceil(days.length / 12);
   days.forEach((d, i) => { if (i % every === 0 || i === days.length - 1) svg += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle">${d.slice(5)}</text>`; });
   svg += '</svg>';
   box.insertAdjacentHTML('beforeend', svg);
-  const tip = $('#tip');
+  const tip = $(tipSel);
   box.querySelectorAll('.bar').forEach((r) => {
-    r.addEventListener('mousemove', (e) => { const rc = box.getBoundingClientRect(); tip.style.display = 'block'; tip.style.left = (e.clientX - rc.left) + 'px'; tip.style.top = (e.clientY - rc.top) + 'px'; tip.textContent = `${r.dataset.d} · ${won(+r.dataset.v)}`; });
+    r.addEventListener('mousemove', (e) => { const rc = box.getBoundingClientRect(); tip.style.display = 'block'; tip.style.left = (e.clientX - rc.left) + 'px'; tip.style.top = (e.clientY - rc.top) + 'px'; tip.textContent = `${r.dataset.d} · ${fmt(+r.dataset.v)}`; });
     r.addEventListener('mouseleave', () => tip.style.display = 'none');
   });
   const best = days.reduce((a, d) => (by[d] || 0) > (by[a] || 0) ? d : a, days[0]);
-  $('#chartHint').textContent = by[best] ? `가장 많이 판 날 ${best} ${won(by[best])}` : '기간 안에 판매가 없습니다.';
+  $(hintSel).textContent = by[best] ? `${bestLabel} ${best} ${fmt(by[best])}` : '기간 안에 기록이 없습니다.';
 }
 function niceStep(max) { const raw = max / 4; const p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
 
