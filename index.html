@@ -141,12 +141,12 @@ a.link{color:var(--accent);font-weight:500}
           <span class="hint">수량</span>
           <span class="stepper"><button type="button" id="qMinus" aria-label="수량 줄이기">−</button><output id="qty">1</output><button type="button" id="qPlus" aria-label="수량 늘리기">+</button></span>
         </div>
-        <div class="hint" style="margin-top:8px">할인</div>
-        <div id="discounts" class="chips">
-          <button class="chip" data-d="10,10" aria-pressed="true">10% + 10%</button>
-          <button class="chip" data-d="10,0">10%</button>
-          <button class="chip" data-d="5,10">5% + 10%</button>
-          <button class="chip" data-d="0,0">없음</button>
+        <div class="hint" style="margin-top:8px">할인 (%) · 차례로 곱해서 계산합니다. 예: 10·5·5 → 정가×0.9×0.95×0.95. 빈 칸은 할인 없음.</div>
+        <div class="row" id="discounts" style="margin-top:4px">
+          <input id="d1" class="disc" inputmode="decimal" placeholder="1차 %" aria-label="1차 할인율" style="width:90px">
+          <input id="d2" class="disc" inputmode="decimal" placeholder="2차 %" aria-label="2차 할인율" style="width:90px">
+          <input id="d3" class="disc" inputmode="decimal" placeholder="3차 %" aria-label="3차 할인율" style="width:90px">
+          <span class="hint" id="discSum"></span>
         </div>
         <div class="grid" style="margin-top:8px">
           <label class="f">한 장 금액 (원) <input id="unitAmt" inputmode="numeric" class="money"></label>
@@ -312,7 +312,11 @@ $('#zipBtn').onclick = () => {
 
 /* ---------- 상품 검색/선택 ---------- */
 let picked = null; // {p, color, size, price, barcode}
-let qty = 1, disc = [10, 10];
+let qty = 1;
+const DISC_IDS = ['d1', 'd2', 'd3'];
+const discRates = () => DISC_IDS.map((id) => { const v = parseFloat($('#' + id).value); return isFinite(v) && v > 0 ? Math.min(v, 100) : 0; });
+const discLabel = () => { const r = discRates().filter((x) => x > 0); return r.length ? r.map((x) => x + '%').join('+') : '없음'; };
+const discMult = () => discRates().reduce((m, x) => m * (1 - x / 100), 1);
 const norm = (s) => s.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 function search(q) {
   const box = $('#results'); const t = norm(q);
@@ -331,7 +335,9 @@ function pickProduct(p) {
   $('#pickName').textContent = `${p.n}  ·  ${p.t}`;
   $('#colors').innerHTML = p.c.map((c, i) => `<button type="button" class="chip" data-c="${i}" aria-pressed="false">${esc(c.c)}</button>`).join('');
   $('#sizes').innerHTML = '<span class="hint">컬러를 먼저 고르세요</span>';
-  $('#pick').hidden = false; $('#qty').textContent = '1';
+  $('#pick').hidden = false; $('#qty').textContent = '1'; unitManual = false;
+  const last = lsGet('showroom.lastDisc', null); if (last) DISC_IDS.forEach((id, i) => { $('#' + id).value = last[i] || ''; });
+  const m = discMult(); $('#discSum').textContent = m < 1 ? `= ${Math.round((1 - m) * 1000) / 10}% 할인` : '';
   if (p.c.length === 1) pickColor(0); else updateAmounts();
 }
 $('#colors').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) pickColor(+b.dataset.c); });
@@ -348,15 +354,15 @@ function pickSize(k) {
   [...$('#sizes').children].forEach((b, j) => b.setAttribute('aria-pressed', String(k === j)));
   $('#unitAmt').value = calcUnit(); updateAmounts();
 }
-const calcUnit = () => Math.round(picked.price * (1 - disc[0] / 100) * (1 - disc[1] / 100));
-$('#discounts').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-d]'); if (!b) return;
-  disc = b.dataset.d.split(',').map(Number);
-  [...$('#discounts').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+const calcUnit = () => Math.round(picked.price * discMult());
+let unitManual = false; // 금액을 직접 고쳤으면 할인 칸이 바뀔 때까지 그 값을 지킨다
+DISC_IDS.forEach((id) => $('#' + id).addEventListener('input', () => {
+  unitManual = false;
+  const m = discMult(); $('#discSum').textContent = m < 1 ? `= ${Math.round((1 - m) * 1000) / 10}% 할인` : '';
   if (picked && picked.size) $('#unitAmt').value = calcUnit();
-  updateAmounts();
-});
-$('#unitAmt').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^\d]/g, ''); [...$('#discounts').children].forEach((x) => x.setAttribute('aria-pressed', 'false')); updateAmounts(); });
+  lsSet('showroom.lastDisc', DISC_IDS.map((x) => $('#' + x).value)); updateAmounts();
+}));
+$('#unitAmt').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^\d]/g, ''); unitManual = true; updateAmounts(); });
 $('#qPlus').onclick = () => { qty = Math.min(99, qty + 1); $('#qty').textContent = qty; updateAmounts(); };
 $('#qMinus').onclick = () => { qty = Math.max(1, qty - 1); $('#qty').textContent = qty; updateAmounts(); };
 function updateAmounts() {
@@ -365,14 +371,14 @@ function updateAmounts() {
   $('#addLine').disabled = !(picked && picked.size && unit > 0);
 }
 $('#pickClear').onclick = clearPick;
-function clearPick() { picked = null; $('#pick').hidden = true; $('#q').value = ''; $('#unitAmt').value = ''; $('#lineAmt').value = ''; disc = [10, 10]; [...$('#discounts').children].forEach((x, i) => x.setAttribute('aria-pressed', String(i === 0))); }
+function clearPick() { picked = null; unitManual = false; $('#pick').hidden = true; $('#q').value = ''; $('#unitAmt').value = ''; $('#lineAmt').value = ''; }
 
 /* ---------- 담긴 줄 ---------- */
 let lines = [];
 $('#addLine').onclick = () => {
   const unit = +$('#unitAmt').value;
-  const pressed = [...$('#discounts').children].find((x) => x.getAttribute('aria-pressed') === 'true');
-  lines.push({ name: picked.p.n, color: picked.color, size: picked.size, barcode: picked.barcode, listPrice: picked.price, qty, unit, discount: pressed ? pressed.textContent : '직접', amount: unit * qty });
+  const rates = discRates(); const label = unitManual && unit !== calcUnit() ? discLabel() + ' (금액 직접)' : discLabel();
+  lines.push({ name: picked.p.n, color: picked.color, size: picked.size, barcode: picked.barcode, listPrice: picked.price, qty, unit, discount: label, rates, amount: unit * qty });
   clearPick(); renderLines(); saveDraft(); toast('담았습니다');
 };
 function renderLines() {
