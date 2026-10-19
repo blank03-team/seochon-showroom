@@ -172,7 +172,7 @@ a.link{color:var(--accent);font-weight:500}
         <button class="btn" type="button" id="copyBtn">표 복사</button>
         <label class="row hint"><input type="checkbox" id="showDone" style="width:auto"> 등록 완료된 것도 보기</label>
       </div>
-      <p class="hint" style="margin:8px 0 0"><b>올리기</b>를 누르면 대기 건이 "올리는 중"이 되고 2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
+      <p class="hint" style="margin:8px 0 0">저장하면 바로 로봇에게 넘어갑니다. <b>올리기</b>는 실패했거나 대기로 남은 건을 다시 보낼 때 누릅니다. 2~4분 뒤 로봇이 이지어드민 발주(서촌쇼룸수동)에 올린 뒤 확장주문검색으로 확인해 "등록 완료" 또는 "실패(사유)"로 바꿉니다. 목록은 30초마다, 탭을 열 때마다 새로 받습니다. 엑셀 내려받기는 로봇이 안 될 때 손으로 올리는 용도입니다. 주문번호는 판매일별로 <code>YYMMDD0SR001</code>부터 이어 붙습니다. 이미 손으로 올린 날이 있으면 아래에서 그 날의 마지막 번호를 맞춰 주세요.</p>
       <div class="row" style="margin-top:8px">
         <label class="f" style="flex:1">날짜 <input id="seqDate" type="date"></label>
         <label class="f" style="flex:1">그 날 마지막으로 쓴 번호 <input id="seqLast" inputmode="numeric" placeholder="예: 5"></label>
@@ -419,7 +419,14 @@ $('#saveSale').onclick = async () => {
   catch (e) { $('#saveSale').disabled = false; toast('저장 실패: ' + e.message); return; }
   lines = []; ['cName','cPhone','cZip','cAddr','cAddr2','cMemo'].forEach((id) => $('#' + id).value = '');
   renderLines(); saveDraft(); clearPick();
-  toast(`${c.name} 님 ${sale.lines.length}줄 저장. 목록에서 엑셀로 내려받으세요.`);
+  // 저장 즉시 로봇에게 넘긴다(성일 10/19). 실패하면 목록 탭의 '올리기' 버튼으로 다시.
+  if (store.mode === 'api') {
+    try { const j = await api('upload', { ids: [sale.id] }); toast(j.dispatched ? `${c.name} 님 ${sale.lines.length}줄 저장 → 이지어드민에 올리는 중 (2~4분)` : `${c.name} 님 저장됨. ` + (j.message || '')); }
+    catch (e) { toast(`${c.name} 님 저장됨. 로봇 호출 실패(${e.message}) → 목록 탭에서 '올리기'를 눌러 주세요`); }
+    refresh($('#showDone').checked);
+  } else {
+    toast(`${c.name} 님 ${sale.lines.length}줄 저장 (이 기기에만). 목록에서 엑셀로 내려받으세요.`);
+  }
 };
 
 /* ---------- 주문번호 ---------- */
