@@ -144,7 +144,7 @@ tr.failed td{background:var(--bad-soft)}
   <div id="t-lines" class="tab" hidden>
     <section class="card"><h2>판매 내역 (한 상품 한 줄 · 앱 입력 + 이지어드민에만 있는 쇼룸 주문)</h2>
       <div class="row"><input class="f" id="q" placeholder="손님·상품·주문번호 검색" style="flex:1"><button class="btn small" id="csvLines">엑셀(CSV) 내려받기</button></div>
-      <div class="tbl"><table><thead><tr><th>판매일</th><th>수령</th><th>손님</th><th>상품</th><th>컬러</th><th>사이즈</th><th class="num">수량</th><th class="num">정가</th><th>할인</th><th class="num">한 장</th><th class="num">판매가</th><th>주문번호</th><th>상태</th><th>출처</th></tr></thead><tbody id="linesBody"></tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>판매일</th><th>수령</th><th>손님</th><th>상품</th><th>컬러</th><th>사이즈</th><th class="num">수량</th><th class="num">정가</th><th>할인</th><th class="num">한 장</th><th class="num">판매가</th><th>주문번호</th><th>상태</th><th>출처</th><th></th></tr></thead><tbody id="linesBody"></tbody></table></div>
     </section>
   </div>
 
@@ -374,12 +374,26 @@ function renderLines(lines) {
   const ck = checks();
   const rows = flatLines().filter((l) => !q || [l.sale.customer.name, l.sale.customer.phone, l.name, l.color, l.orderNo].join(' ').toLowerCase().includes(q));
   const ez = ezOnlyLines().filter((l) => !q || [l.name, l.color, l.orderNo].join(' ').toLowerCase().includes(q));
-  const all = rows.map((l) => ({ d: l.sale.saleDate, html: `<tr${l.returned ? ' style="text-decoration:line-through;color:var(--mute)"' : ''}><td>${l.sale.saleDate}</td><td>${l.sale.fulfillment === 'pickup' ? '현장 수령' : '배송'}</td><td>${esc(l.sale.customer.name)}</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${won(l.listPrice)}</td><td>${esc(discLabel(l))}${/직접/.test(l.discount || '') ? ' <span class="flag mute">직접</span>' : ''}${!l.returned && ck[`${l.sale.id}|${l.idx}`] ? ` <span class="flag bad" title="${esc(ck[`${l.sale.id}|${l.idx}`].why.filter(([c]) => c !== 'mute').map(([, t]) => t).join(' · '))}">점검 필요</span><div class="hint">${esc(ck[`${l.sale.id}|${l.idx}`].why.filter(([c]) => c !== 'mute').map(([, t]) => t).join(' · '))}</div>` : ''}</td><td class="num">${won(l.unit)}</td><td class="num">${won(l.amount)}</td><td>${esc(l.orderNo || '')}</td><td><span class="status ${l.sale.status}">${STATUS[l.sale.status] || l.sale.status}</span>${l.returned ? ' <span class="flag warn">반품</span>' : ''}</td><td><span class="flag ok">앱</span></td></tr>` }))
-    .concat(ez.map((l) => ({ d: l.date, html: `<tr><td>${esc(l.date)}</td><td>배송</td><td class="hint">—</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${l.listPrice ? won(l.listPrice) : '-'}</td><td class="hint">—</td><td class="num hint">—</td><td class="num hint">—</td><td>${esc(l.orderNo)}</td><td><span class="status registered">${esc(l.status || '이지어드민')}</span></td><td><span class="flag mute">이지어드민</span></td></tr>` })))
+  const all = rows.map((l) => ({ d: l.sale.saleDate, html: `<tr${l.returned ? ' style="text-decoration:line-through;color:var(--mute)"' : ''}><td>${l.sale.saleDate}</td><td>${l.sale.fulfillment === 'pickup' ? '현장 수령' : '배송'}</td><td>${esc(l.sale.customer.name)}</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${won(l.listPrice)}</td><td>${esc(discLabel(l))}${/직접/.test(l.discount || '') ? ' <span class="flag mute">직접</span>' : ''}${!l.returned && ck[`${l.sale.id}|${l.idx}`] ? ` <span class="flag bad" title="${esc(ck[`${l.sale.id}|${l.idx}`].why.filter(([c]) => c !== 'mute').map(([, t]) => t).join(' · '))}">점검 필요</span><div class="hint">${esc(ck[`${l.sale.id}|${l.idx}`].why.filter(([c]) => c !== 'mute').map(([, t]) => t).join(' · '))}</div>` : ''}</td><td class="num">${won(l.unit)}</td><td class="num">${won(l.amount)}</td><td>${esc(l.orderNo || '')}</td><td><span class="status ${l.sale.status}">${STATUS[l.sale.status] || l.sale.status}</span>${l.returned ? ' <span class="flag warn">반품</span>' : ''}</td><td><span class="flag ok">앱</span></td><td><button class="btn small" data-del="${esc(l.sale.id)}" title="이 손님의 판매 전체(${l.sale.lines.length}줄)를 지웁니다">판매 삭제</button></td></tr>` }))
+    .concat(ez.map((l) => ({ d: l.date, html: `<tr><td>${esc(l.date)}</td><td>배송</td><td class="hint">—</td><td>${esc(l.name)}</td><td>${esc(l.color)}</td><td>${esc(sizeLabel(l.size))}</td><td class="num">${l.qty}</td><td class="num">${l.listPrice ? won(l.listPrice) : '-'}</td><td class="hint">—</td><td class="num hint">—</td><td class="num hint">—</td><td>${esc(l.orderNo)}</td><td><span class="status registered">${esc(l.status || '이지어드민')}</span></td><td><span class="flag mute">이지어드민</span></td><td></td></tr>` })))
     .sort((a, b) => b.d.localeCompare(a.d));
-  $('#linesBody').innerHTML = all.length ? all.map((r) => r.html).join('') : '<tr><td colspan="14" class="empty">없음</td></tr>';
+  $('#linesBody').innerHTML = all.length ? all.map((r) => r.html).join('') : '<tr><td colspan="15" class="empty">없음</td></tr>';
 }
 $('#q').addEventListener('input', () => D && renderLines());
+// 판매 삭제(재윤 10/20): 손님 한 건 전체를 지운다 → 매장 목록·올리기·배송 여부·매출 등 모든 목록에서 빠진다(서버는 'deleted'로 숨김).
+// 이미 이지어드민에 올라간 건은 이지어드민 주문은 그대로 남으니 필요하면 이지어드민에서 따로 지운다.
+$('#linesBody').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const s = D.sales.find((x) => x.id === b.dataset.del); if (!s) return;
+  if (s.status === 'queued') { toast('로봇이 이지어드민에 올리는 중이라 지금은 지울 수 없습니다.'); return; }
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = `정말 삭제 (${s.customer.name} ${s.lines.length}줄)`; setTimeout(() => { if (b.isConnected) { b.textContent = '판매 삭제'; delete b.dataset.armed; } }, 4000); return; }
+  b.disabled = true;
+  try {
+    const j = await api('delete', { id: s.id });
+    toast(j.wasUploaded ? `${s.customer.name} 님 판매를 지웠습니다. 이지어드민에는 이미 올라가 있으니 필요하면 이지어드민에서 따로 지우세요.` : `${s.customer.name} 님 판매를 지웠습니다.`);
+    await load();
+  } catch (err) { b.disabled = false; toast('삭제 실패: ' + err.message); }
+});
 $('#csvLines').onclick = () => {
   if (!D) return;
   const head = ['판매일', '수령', '손님', '전화', '상품', '컬러', '사이즈', '수량', '정가', '할인', '한장', '판매가', '주문번호', '상태', '반품일'];
